@@ -21,6 +21,8 @@ residual = False
 nonlinearity = tf.nn.elu
 model = GAT
 
+print('Starting timer')
+start = time.time()
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
 print('lr: ' + str(lr))
@@ -170,5 +172,6 @@ with tf.Graph().as_default():
             ts_step += 1
 
         print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
-
+        end = time.time()
+        print('Total execution time: ', end - start)
         sess.close()
