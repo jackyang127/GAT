@@ -21,8 +21,6 @@ residual = False
 nonlinearity = tf.nn.elu
 model = GAT
 
-print('Starting timer')
-start = time.time()
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
 print('lr: ' + str(lr))
@@ -37,6 +35,50 @@ print('model: ' + str(model))
 
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = process.load_data(dataset)
 features, spars = process.preprocess_features(features)
+print("************")
+print(adj.shape)
+print("************")
+print(features.shape)
+print("************")
+print(y_train.shape)
+print("************")
+print(y_val.shape)
+print("************")
+print(y_test.shape)
+print("************")
+print(train_mask.shape)
+print("************")
+print(val_mask.shape)
+print("************")
+print(test_mask.shape)
+print("************")
+
+adj = adj[0:1354, 0:1354]
+features = features[0:1354]
+y_train = y_train[0:1354]
+y_val = y_val[0:1354]
+y_test = y_test[0:1354]
+train_mask = train_mask[0:1354]
+val_mask = val_mask[0:1354]
+test_mask = test_mask[0:1354]
+print("&&&&&&&&&&&&")
+print("************")
+print(adj.shape)
+print("************")
+print(features.shape)
+print("************")
+print(y_train.shape)
+print("************")
+print(y_val.shape)
+print("************")
+print(y_test.shape)
+print("************")
+print(train_mask.shape)
+print("************")
+print(val_mask.shape)
+print("************")
+print(test_mask.shape)
+print("************")
 
 nb_nodes = features.shape[0]
 ft_size = features.shape[1]
@@ -54,6 +96,10 @@ val_mask = val_mask[np.newaxis]
 test_mask = test_mask[np.newaxis]
 
 biases = process.adj_to_bias(adj, [nb_nodes], nhood=1)
+
+
+
+
 
 with tf.Graph().as_default():
     with tf.name_scope('input'):
@@ -127,8 +173,8 @@ with tf.Graph().as_default():
                 val_acc_avg += acc_vl
                 vl_step += 1
 
-            print('Training run %d: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
-                    (epoch, train_loss_avg/tr_step, train_acc_avg/tr_step,
+            print('Training: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
+                    (train_loss_avg/tr_step, train_acc_avg/tr_step,
                     val_loss_avg/vl_step, val_acc_avg/vl_step))
 
             if val_acc_avg/vl_step >= vacc_mx or val_loss_avg/vl_step <= vlss_mn:
@@ -172,6 +218,5 @@ with tf.Graph().as_default():
             ts_step += 1
 
         print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
-        end = time.time()
-        print('Total execution time: ', end - start)
+
         sess.close()
