@@ -198,7 +198,7 @@ class doGAT(object):
                 ts_step = 0
                 ts_loss = 0.0
                 ts_acc = 0.0
-
+                print("ts_size: ", ts_size)
                 while ts_step * batch_size < ts_size:
                     loss_value_ts, acc_ts = sess.run([loss, accuracy],
                         feed_dict={
@@ -211,6 +211,7 @@ class doGAT(object):
                     ts_loss += loss_value_ts
                     ts_acc += acc_ts
                     ts_step += 1
+                    print("iteration", ts_loss, " ", ts_acc, " ", ts_step)
 
                 print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
                 end = time.time()
