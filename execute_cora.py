@@ -6,10 +6,22 @@ import ray
 from models import GAT
 from utils import process
 
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--redis_address', '-r', default=None, type=str, help='pass in the redis_address if running on a cluster, otherwise omit')
+args = parser.parse_args()
+
 checkpt_file = 'pre_trained/cora/mod_cora.ckpt'
 
 dataset = 'cora'
-ray.init()
+
+# If redis_address provided, initialize ray with that address
+if args.redis_address:
+    ray.init(redis_address=args.redis_address)
+else:
+    ray.init()
 
 # training params
 batch_size = 1
