@@ -49,6 +49,7 @@ print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
 
+
 class doGAT(object):
     def __init__(self, index, dataset):
         pass
