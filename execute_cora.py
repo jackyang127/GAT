@@ -39,23 +39,42 @@ print('model: ' + str(model))
 
 class doGAT(object):
     def __init__(self, index, dataset):
-        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset)
+        pass
+        # self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset)
 
-        self.adj = self.adj[index*1354:(index+1)*1354, index*1354:(index+1)*1354]
-        self.features = self.features[index*1354:(index+1)*1354]
-        self.y_train = self.y_train[index*1354:(index+1)*1354]
-        self.y_val = self.y_val[index*1354:(index+1)*1354]
-        self.y_test = self.y_test[index*1354:(index+1)*1354]
-        self.train_mask = self.train_mask[index*1354:(index+1)*1354]
-        self.val_mask = self.val_mask[index*1354:(index+1)*1354]
-        self.test_mask = self.test_mask[index*1354:(index+1)*1354]
+        # self.adj = self.adj[index*1354:(index+1)*1354, index*1354:(index+1)*1354]
+        # self.features = self.features[index*1354:(index+1)*1354]
+        # self.y_train = self.y_train[index*1354:(index+1)*1354]
+        # self.y_val = self.y_val[index*1354:(index+1)*1354]
+        # self.y_test = self.y_test[index*1354:(index+1)*1354]
+        # self.train_mask = self.train_mask[index*1354:(index+1)*1354]
+        # self.val_mask = self.val_mask[index*1354:(index+1)*1354]
+        # self.test_mask = self.test_mask[index*1354:(index+1)*1354]
+
+        # for i in range(100, 2708):
+        #     self.features[i] = np.zeros(1433);
+        #     self.y_train[i] = 0;
+        #     self.y_val[i] = 0;
+        #     self.y_test[i] = 0;
+        #     self.train_mask[i] = 0;
+        #     self.val_mask[i] = 0;
+        #     self.test_mask[i] = 0;
+        #     # for j in range(100, 2708):
+        #     #     self.adj[i,j] = 0;
+
+        # self.nb_nodes = self.features.shape[0]
+        # self.ft_size = self.features.shape[1]
+        # self.nb_classes = self.y_train.shape[1]
+        #
+        # self.features, self.spars = process.preprocess_features(self.features)
+
+    def magic(self, index):
+        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset, index)
         self.nb_nodes = self.features.shape[0]
         self.ft_size = self.features.shape[1]
         self.nb_classes = self.y_train.shape[1]
 
         self.features, self.spars = process.preprocess_features(self.features)
-
-    def magic(self, index):
 
         self.adj = self.adj.todense()
 
@@ -216,10 +235,10 @@ class doGAT(object):
                 end = time.time()
                 print('Total execution time: ', end - start)
                 sess.close()
-                return ts_acc/ts_step
+                return (ts_acc/ts_step, logits)
 
 remote_network = ray.remote(doGAT)
-actor_list = [remote_network.remote(0, dataset) for i in range(2)]
-things = [actor_list[i].magic.remote(0) for i in range(2)]
+actor_list = [remote_network.remote(i, dataset) for i in range(4)]
+things = [actor_list[i].magic.remote(i) for i in range(4)]
 gradients_list = ray.get(things)
 print(gradients_list)
