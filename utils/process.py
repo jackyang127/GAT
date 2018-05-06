@@ -40,9 +40,26 @@ def sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
     mask[idx] = 1
+ 
     return np.array(mask, dtype=np.bool)
 
-def load_data(dataset_str): # {'pubmed', 'citeseer', 'cora'}
+def chunk(xs, n):
+    """Split the list, xs, into n chunks, copied from online"""
+    L = len(xs)
+    assert 0 < n <= L
+    s, r = divmod(L, n)
+    chunks = [xs[p:p+s] for p in range(0, L, s)]
+    chunks[n-1:] = [xs[-r-s:]]
+    return chunks
+
+def sample_mask_new(idx, l, index, num_indices):
+    """Create mask."""
+    mask = np.zeros(l)
+    idx = chunk(idx, num_indices)[index]
+    mask[idx] = 1
+    return np.array(mask, dtype=np.bool)
+
+def load_data(dataset_str, index=0, num_indices=1): # {'pubmed', 'citeseer', 'cora'}
     """Load data."""
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
@@ -79,9 +96,10 @@ def load_data(dataset_str): # {'pubmed', 'citeseer', 'cora'}
     idx_train = range(len(y))
     idx_val = range(len(y), len(y)+500)
 
-    train_mask = sample_mask(idx_train, labels.shape[0])
-    val_mask = sample_mask(idx_val, labels.shape[0])
-    test_mask = sample_mask(idx_test, labels.shape[0])
+    train_mask = sample_mask_new(idx_train, labels.shape[0], index, num_indices)
+    #train_mask = sample_mask(idx_train, labels.shape[0])
+    val_mask = sample_mask_new(idx_val, labels.shape[0], index, num_indices)
+    test_mask = sample_mask_new(idx_test, labels.shape[0], index, num_indices)
 
     y_train = np.zeros(labels.shape)
     y_val = np.zeros(labels.shape)
@@ -90,9 +108,9 @@ def load_data(dataset_str): # {'pubmed', 'citeseer', 'cora'}
     y_val[val_mask, :] = labels[val_mask, :]
     y_test[test_mask, :] = labels[test_mask, :]
 
-    print(adj.shape)
-    print(features.shape)
-
+    print("Adjacency shape: ", adj.shape)
+    print("Features shape: ", features.shape)
+    sys.exit()
     return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
 
 def sparse_to_tuple(sparse_mx):
