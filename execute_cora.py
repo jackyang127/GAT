@@ -170,7 +170,7 @@ class doGAT(object):
 
                     print('%d: Training run %d: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
                             (index, epoch, train_loss_avg/tr_step, train_acc_avg/tr_step,
-                            val_loss_avg/vl_step, val_acc_avg/vl_step))
+                            val_loss_avg/vl_step, val_acc_avg/vl_step), flush=True)
 
                     if val_acc_avg/vl_step >= vacc_mx or val_loss_avg/vl_step <= vlss_mn:
                         if val_acc_avg/vl_step >= vacc_mx and val_loss_avg/vl_step <= vlss_mn:
@@ -183,8 +183,8 @@ class doGAT(object):
                     else:
                         curr_step += 1
                         if curr_step == patience:
-                            print('Early stop! Min loss: ', vlss_mn, ', Max accuracy: ', vacc_mx)
-                            print('Early stop model validation loss: ', vlss_early_model, ', accuracy: ', vacc_early_model)
+                            print('Early stop! Min loss: ', vlss_mn, ', Max accuracy: ', vacc_mx, flush=True)
+                            print('Early stop model validation loss: ', vlss_early_model, ', accuracy: ', vacc_early_model, flush=True)
                             break
 
                     train_loss_avg = 0
