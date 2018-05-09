@@ -27,5 +27,11 @@ class GAT(BaseGAttN):
                 out_sz=nb_classes, activation=lambda x: x,
                 in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
         logits = tf.add_n(out) / n_heads[-1]
-    
+        print('nb_classes: ', nb_classes)
+        print('nb_nodes: ', nb_nodes)
+        print('n_heads: ', n_heads)
+        
+        print(logits)
+        print(logits.shape)
+        print(tf.reshape(logits, [-1, nb_classes]))    
         return logits
