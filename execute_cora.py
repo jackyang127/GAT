@@ -6,10 +6,22 @@ import ray
 from models import GAT
 from utils import process
 
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--redis_address', '-r', default=None, type=str, help='pass in the redis_address if running on a cluster, otherwise omit')
+args = parser.parse_args()
+
 checkpt_file = 'pre_trained/cora/mod_cora.ckpt'
 
 dataset = 'cora'
-ray.init()
+
+# If redis_address provided, initialize ray with that address
+if args.redis_address:
+    ray.init(redis_address=args.redis_address)
+else:
+    ray.init()
 
 # training params
 batch_size = 1
@@ -37,25 +49,45 @@ print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
 
+
 class doGAT(object):
     def __init__(self, index, dataset):
-        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset)
+        pass
+        # self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset)
 
-        self.adj = self.adj[index*1354:(index+1)*1354, index*1354:(index+1)*1354]
-        self.features = self.features[index*1354:(index+1)*1354]
-        self.y_train = self.y_train[index*1354:(index+1)*1354]
-        self.y_val = self.y_val[index*1354:(index+1)*1354]
-        self.y_test = self.y_test[index*1354:(index+1)*1354]
-        self.train_mask = self.train_mask[index*1354:(index+1)*1354]
-        self.val_mask = self.val_mask[index*1354:(index+1)*1354]
-        self.test_mask = self.test_mask[index*1354:(index+1)*1354]
+        # self.adj = self.adj[index*1354:(index+1)*1354, index*1354:(index+1)*1354]
+        # self.features = self.features[index*1354:(index+1)*1354]
+        # self.y_train = self.y_train[index*1354:(index+1)*1354]
+        # self.y_val = self.y_val[index*1354:(index+1)*1354]
+        # self.y_test = self.y_test[index*1354:(index+1)*1354]
+        # self.train_mask = self.train_mask[index*1354:(index+1)*1354]
+        # self.val_mask = self.val_mask[index*1354:(index+1)*1354]
+        # self.test_mask = self.test_mask[index*1354:(index+1)*1354]
+
+        # for i in range(100, 2708):
+        #     self.features[i] = np.zeros(1433);
+        #     self.y_train[i] = 0;
+        #     self.y_val[i] = 0;
+        #     self.y_test[i] = 0;
+        #     self.train_mask[i] = 0;
+        #     self.val_mask[i] = 0;
+        #     self.test_mask[i] = 0;
+        #     # for j in range(100, 2708):
+        #     #     self.adj[i,j] = 0;
+
+        # self.nb_nodes = self.features.shape[0]
+        # self.ft_size = self.features.shape[1]
+        # self.nb_classes = self.y_train.shape[1]
+        #
+        # self.features, self.spars = process.preprocess_features(self.features)
+
+    def magic(self, index):
+        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset, index)
         self.nb_nodes = self.features.shape[0]
         self.ft_size = self.features.shape[1]
         self.nb_classes = self.y_train.shape[1]
 
         self.features, self.spars = process.preprocess_features(self.features)
-
-    def magic(self, index):
 
         self.adj = self.adj.todense()
 
@@ -170,7 +202,7 @@ class doGAT(object):
 
                     print('%d: Training run %d: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
                             (index, epoch, train_loss_avg/tr_step, train_acc_avg/tr_step,
-                            val_loss_avg/vl_step, val_acc_avg/vl_step))
+                            val_loss_avg/vl_step, val_acc_avg/vl_step), flush=True)
 
                     if val_acc_avg/vl_step >= vacc_mx or val_loss_avg/vl_step <= vlss_mn:
                         if val_acc_avg/vl_step >= vacc_mx and val_loss_avg/vl_step <= vlss_mn:
@@ -183,8 +215,8 @@ class doGAT(object):
                     else:
                         curr_step += 1
                         if curr_step == patience:
-                            print('Early stop! Min loss: ', vlss_mn, ', Max accuracy: ', vacc_mx)
-                            print('Early stop model validation loss: ', vlss_early_model, ', accuracy: ', vacc_early_model)
+                            print('Early stop! Min loss: ', vlss_mn, ', Max accuracy: ', vacc_mx, flush=True)
+                            print('Early stop model validation loss: ', vlss_early_model, ', accuracy: ', vacc_early_model, flush=True)
                             break
 
                     train_loss_avg = 0
@@ -198,7 +230,7 @@ class doGAT(object):
                 ts_step = 0
                 ts_loss = 0.0
                 ts_acc = 0.0
-
+                print("ts_size: ", ts_size)
                 while ts_step * batch_size < ts_size:
                     loss_value_ts, acc_ts = sess.run([loss, accuracy],
                         feed_dict={
@@ -211,15 +243,16 @@ class doGAT(object):
                     ts_loss += loss_value_ts
                     ts_acc += acc_ts
                     ts_step += 1
+                    print("iteration", ts_loss, " ", ts_acc, " ", ts_step)
 
                 print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
                 end = time.time()
                 print('Total execution time: ', end - start)
                 sess.close()
-                return ts_acc/ts_step
+                return (ts_acc/ts_step, logits)
 
 remote_network = ray.remote(doGAT)
-actor_list = [remote_network.remote(0, dataset) for i in range(2)]
-things = [actor_list[i].magic.remote(0) for i in range(2)]
+actor_list = [remote_network.remote(i, dataset) for i in range(4)]
+things = [actor_list[i].magic.remote(i) for i in range(4)]
 gradients_list = ray.get(things)
 print(gradients_list)

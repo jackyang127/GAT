@@ -43,23 +43,7 @@ def sample_mask(idx, l):
  
     return np.array(mask, dtype=np.bool)
 
-def chunk(xs, n):
-    """Split the list, xs, into n chunks, copied from online"""
-    L = len(xs)
-    assert 0 < n <= L
-    s, r = divmod(L, n)
-    chunks = [xs[p:p+s] for p in range(0, L, s)]
-    chunks[n-1:] = [xs[-r-s:]]
-    return chunks
-
-def sample_mask_new(idx, l, index, num_indices):
-    """Create mask."""
-    mask = np.zeros(l)
-    idx = chunk(idx, num_indices)[index]
-    mask[idx] = 1
-    return np.array(mask, dtype=np.bool)
-
-def load_data(dataset_str, index=0, num_indices=1): # {'pubmed', 'citeseer', 'cora'}
+def load_data(dataset_str, index): # {'pubmed', 'citeseer', 'cora'}
     """Load data."""
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
@@ -71,6 +55,7 @@ def load_data(dataset_str, index=0, num_indices=1): # {'pubmed', 'citeseer', 'co
                 objects.append(pkl.load(f))
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
+
     test_idx_reorder = parse_index_file("data/ind.{}.test.index".format(dataset_str))
     test_idx_range = np.sort(test_idx_reorder)
 
@@ -93,8 +78,11 @@ def load_data(dataset_str, index=0, num_indices=1): # {'pubmed', 'citeseer', 'co
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
     idx_test = test_idx_range.tolist()
-    idx_train = range(len(y))
-    idx_val = range(len(y), len(y)+500)
+    print("leny " + str(len(y)))
+    leny = len(y) // 4
+    leny5 = (len(y) + 500) // 4
+    idx_train = range(leny*index, leny*(index+1))
+    idx_val = range(leny5*index, leny5*(index+1))
 
     train_mask = sample_mask_new(idx_train, labels.shape[0], index, num_indices)
     #train_mask = sample_mask(idx_train, labels.shape[0])
@@ -166,4 +154,3 @@ def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
     return sparse_to_tuple(adj_normalized)
-
