@@ -49,6 +49,63 @@ print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
 
+class CalculateAccuracy(object):
+    def __init__(self, info_finished):
+        self.info_finished = info_finished
+        self.adj_PLACEHOLDER, self.features_PLACEHOLDER, self.y_train_PLACEHOLDER, self.y_val_PLACEHOLDER, self.y_test, self.train_mask_PLACEHOLDER, self.val_mask_PLACEHOLDER, self.test_mask = process.load_data(dataset)
+        self.nb_nodes = self.features_PLACEHOLDER.shape[0]
+        self.ft_size = self.features_PLACEHOLDER.shape[1]
+        self.nb_classes = self.y_train_PLACEHOLDER.shape[1]
+    
+    def test_accuracy(self):
+        with tf.Graph().as_default():
+            with tf.name_scope('input'):
+                # ftr_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, self.nb_nodes, self.ft_size))
+                # bias_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, self.nb_nodes, self.nb_nodes))
+                #TODO: Find logits size
+                logits_size = (len(self.info_finished), self.nb_nodes, self.nb_classes)
+                logits_list = tf.placeholder(dtype=tf.float32, shape=logits_size)
+                lbl_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes, self.nb_classes))
+                msk_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes))
+                # attn_drop = tf.placeholder(dtype=tf.float32, shape=())
+                # ffd_drop = tf.placeholder(dtype=tf.float32, shape=()))
+                # is_train = tf.placeholder(dtype=tf.bool, shape=())
+
+            # logits = model.inference(ftr_in, self.nb_classes, self.nb_nodes, is_train,
+            #                             attn_drop, ffd_drop,
+            #                             bias_mat=bias_in,
+            #                             hid_units=hid_units, n_heads=n_heads,
+            #                             residual=residual, activation=nonlinearity)
+            
+            # logits should already be shapped properly
+            # log_resh = tf.reshape(logits, [-1, self.nb_classes])
+            lab_resh = tf.reshape(lbl_in, [-1, self.nb_classes])
+            msk_resh = tf.reshape(msk_in, [-1])
+            accuracy = model.masked_accuracy_multiple(logits_list, lab_resh, msk_resh)
+            
+            # TODO set the logits here
+            self.logits = [info[1] for info in self.info_finished]
+            self.logits_list = np.stack(self.logits)
+            
+            with tf.Session() as sess:
+                ts_size = self.features_PLACEHOLDER.shape[0]
+                ts_step = 0
+                ts_loss = 0.0
+                ts_acc = 0.0
+                acc_ts = sess.run([accuracy],
+                    feed_dict={
+                        logits: self.logits_list,
+                        lbl_in: self.y_test[ts_step*batch_size:(ts_step+1)*batch_size],
+                        msk_in: self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
+                        is_train: False,
+                        attn_drop: 0.0, ffd_drop: 0.0})
+                ts_acc += acc_ts
+                ts_step += 1
+                
+                print('Test accuracy:', ts_acc/ts_step)
+                end = time.time()
+                print('Total execution time: ', end - start)
+                sess.close()
 
 class doGAT(object):
     def __init__(self, index, dataset):
@@ -82,7 +139,7 @@ class doGAT(object):
         # self.features, self.spars = process.preprocess_features(self.features)
 
     def magic(self, index):
-        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data(dataset, index)
+        self.adj, self.features, self.y_train, self.y_val, self.y_test, self.train_mask, self.val_mask, self.test_mask = process.load_data_new(dataset, index)
         self.nb_nodes = self.features.shape[0]
         self.ft_size = self.features.shape[1]
         self.nb_classes = self.y_train.shape[1]
@@ -225,34 +282,48 @@ class doGAT(object):
                     val_acc_avg = 0
 
                 saver.restore(sess, checkpt_file)
-
-                ts_size = self.features.shape[0]
                 ts_step = 0
-                ts_loss = 0.0
-                ts_acc = 0.0
-                print("ts_size: ", ts_size)
-                while ts_step * batch_size < ts_size:
-                    loss_value_ts, acc_ts = sess.run([loss, accuracy],
-                        feed_dict={
+                logits = sess.run([log_resh],
+                    feed_dict={
                             ftr_in: self.features[ts_step*batch_size:(ts_step+1)*batch_size],
                             bias_in: self.biases[ts_step*batch_size:(ts_step+1)*batch_size],
                             lbl_in: self.y_test[ts_step*batch_size:(ts_step+1)*batch_size],
                             msk_in: self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
                             is_train: False,
                             attn_drop: 0.0, ffd_drop: 0.0})
-                    ts_loss += loss_value_ts
-                    ts_acc += acc_ts
-                    ts_step += 1
-                    print("iteration", ts_loss, " ", ts_acc, " ", ts_step)
-
-                print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
-                end = time.time()
-                print('Total execution time: ', end - start)
+                            
                 sess.close()
-                return (ts_acc/ts_step, logits)
+                return (index, logits)
+
+                # ts_size = self.features.shape[0]
+                # ts_step = 0
+                # ts_loss = 0.0
+                # ts_acc = 0.0
+                # print("ts_size: ", ts_size)
+                # while ts_step * batch_size < ts_size:
+                #     loss_value_ts, acc_ts = sess.run([loss, accuracy],
+                #         feed_dict={
+                #             ftr_in: self.features[ts_step*batch_size:(ts_step+1)*batch_size],
+                #             bias_in: self.biases[ts_step*batch_size:(ts_step+1)*batch_size],
+                #             lbl_in: self.y_test[ts_step*batch_size:(ts_step+1)*batch_size],
+                #             msk_in: self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
+                #             is_train: False,
+                #             attn_drop: 0.0, ffd_drop: 0.0})
+                #     ts_loss += loss_value_ts
+                #     ts_acc += acc_ts
+                #     ts_step += 1
+                #     print("iteration", ts_loss, " ", ts_acc, " ", ts_step)
+                # 
+                # print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
+                # end = time.time()
+                # print('Total execution time: ', end - start)
+                # sess.close()
+                # return (ts_acc/ts_step, logits)
 
 remote_network = ray.remote(doGAT)
-actor_list = [remote_network.remote(i, dataset) for i in range(4)]
-things = [actor_list[i].magic.remote(i) for i in range(4)]
+actor_list = [remote_network.remote(i, dataset) for i in range(2)]
+things = [actor_list[i].magic.remote(i) for i in range(2)]
+info_finished_ids, _ = ray.wait(things)
+
 gradients_list = ray.get(things)
 print(gradients_list)
