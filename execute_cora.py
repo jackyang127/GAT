@@ -26,6 +26,7 @@ else:
 # training params
 batch_size = 1
 nb_epochs = 100000
+#patience = 100
 patience = 100
 lr = 0.005  # learning rate
 l2_coef = 0.0005  # weight decay
@@ -64,15 +65,19 @@ class CalculateAccuracy(object):
         self.nb_nodes = self.features_PLACEHOLDER.shape[0]
         self.ft_size = self.features_PLACEHOLDER.shape[1]
         self.nb_classes = self.y_train_PLACEHOLDER.shape[1]
+        
+        self.y_test = self.y_test[np.newaxis]
+        self.test_mask = self.test_mask[np.newaxis]
+        
         with tf.Graph().as_default():
             with tf.name_scope('input'):
                 # ftr_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, self.nb_nodes, self.ft_size))
                 # bias_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, self.nb_nodes, self.nb_nodes))
                 #TODO: Find logits size
                 logits_size = (len(self.info_finished), self.nb_nodes, self.nb_classes)
-                logits_list = tf.placeholder(dtype=tf.float32, shape=logits_size)
-                lbl_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes, self.nb_classes))
-                msk_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes))
+                logits_list = tf.placeholder(dtype=tf.float32, shape=logits_size, name="logit_list_accuracy")
+                lbl_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes, self.nb_classes), name="lbl_in_accuracy")
+                msk_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, self.nb_nodes), name="msk_in_accuracy")
                 # attn_drop = tf.placeholder(dtype=tf.float32, shape=())
                 # ffd_drop = tf.placeholder(dtype=tf.float32, shape=()))
                 # is_train = tf.placeholder(dtype=tf.bool, shape=())
@@ -89,30 +94,42 @@ class CalculateAccuracy(object):
             msk_resh = tf.reshape(msk_in, [-1])
             accuracy = model.masked_accuracy_multiple(logits_list, lab_resh, msk_resh)
             
-            # TODO set the logits here
-            print("self.info_finshed, ", self.info_finished)
-            self.logits = [info[1] for info in self.info_finished]
+            # print("self.info_finshed, ", self.info_finished)
+            # print("self.info_finished length, ", len(self.info_finished))
+            
+            # print(self.info_finished[0][1])
+            # print(self.info_finished[0][1].shape)
+            
+            self.logits = [info[1][0] for info in self.info_finished]
             self.logits_list = np.stack(self.logits)
+            
+            ts_step = 0
+            # 
+            # print("TESTING SIZE TEST ACCURACY ", self.y_test[ts_step*batch_size:(ts_step+1)*batch_size].shape)
+            # print("TESTING SIZE TEST ACCURACY ", self.y_test[ts_step*batch_size:(ts_step+1)*batch_size])
+            # print(self.y_test)
+            # print(self.y_test.shape)
             
             with tf.Session() as sess:
                 ts_size = self.features_PLACEHOLDER.shape[0]
-                ts_step = 0
-                ts_loss = 0.0
                 ts_acc = 0.0
                 acc_ts = sess.run([accuracy],
                     feed_dict={
                         logits_list: self.logits_list,
                         lbl_in: self.y_test[ts_step*batch_size:(ts_step+1)*batch_size],
-                        msk_in: self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
-                        is_train: False,
-                        attn_drop: 0.0, ffd_drop: 0.0})
-                ts_acc += acc_ts
+                        msk_in: self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size]})
+                print('acc_ts, ', acc_ts)
+                ts_acc += acc_ts[0]
                 ts_step += 1
                 
-                print('Test accuracy:', ts_acc/ts_step)
+                test_accuracy = ts_acc/ts_step
+                
+                print('Test accuracy:', test_accuracy)
                 end = time.time()
                 print('Total execution time: ', end - start)
                 sess.close()
+                
+                return test_accuracy
 
 class doGAT(object):
     def __init__(self, index, dataset):
@@ -290,6 +307,10 @@ class doGAT(object):
 
                 saver.restore(sess, checkpt_file)
                 ts_step = 0
+                
+                # print("TESTING SIZE train ACCURACY ", self.test_mask[ts_step*batch_size:(ts_step+1)*batch_size].shape)
+                # print(self.y_test.shape)
+                # print(self.y_test)
                 logits = sess.run([log_resh],
                     feed_dict={
                             ftr_in: self.features[ts_step*batch_size:(ts_step+1)*batch_size],
@@ -301,7 +322,7 @@ class doGAT(object):
                             
                 sess.close()
                 end = time.time()
-                print('Total execution time: ', end - start)
+                print('Total execution time for index {}: {}'.format(index, end - start))
                 
                 return (index, logits)
 
@@ -331,10 +352,10 @@ class doGAT(object):
                 # return (ts_acc/ts_step, logits)
 
 remote_network = ray.remote(doGAT)
-actor_list = [remote_network.remote(i, dataset) for i in range(2)]
-things = [actor_list[i].magic.remote(i) for i in range(2)]
-info_finished_ids, _ = ray.wait(things)
-print("CROSSED WAIT WTF")
+actor_list = [remote_network.remote(i, dataset) for i in range(4)]
+things = [actor_list[i].magic.remote(i) for i in range(4)]
+info_finished_ids, _ = ray.wait(things, num_returns=4)
+
 accuracy_remote = ray.remote(CalculateAccuracy)
 accuracy_actor = accuracy_remote.remote()
 accuracy_id = accuracy_actor.test_accuracy.remote(ray.get(info_finished_ids))

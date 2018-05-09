@@ -131,7 +131,6 @@ def load_data_new(dataset_str, index): # {'pubmed', 'citeseer', 'cora'}
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
     idx_test = test_idx_range.tolist()
-    print("leny " + str(len(y)))
     leny = len(y) // 4
     leny5 = (len(y) + 500) // 4
     idx_train = range(leny*index, leny*(index+1))
